@@ -2,29 +2,89 @@ using System;
 using System.Text;
 namespace Utils {
 	/*
-	 * Includes: selection, insertion, shellsort, bubblesort, mergesort
-	 * 
+	 * Includes: selection, insertion, shellsort, bubblesort, mergesort, quicksort 
+	 * (latter two modified as in http://algs4.cs.princeton.edu/23quicksort
+	 * and http://algs4.cs.princeton.edu/22mergesort)
 	 */ 
 	public class Sorts {
-		//to do: quick, and optimized versions
-		//modify for inverted sort? All in-place
-		int[] material;
-		//check whether top-down or bottom-up faster
-		//segmentation fault?
+		public int[] material;
+
+		private int CUTOFF = 10;
+
+		/*"Eliminate the copy to the auxiliary array. It is possible to eliminate the time (but not the space) taken to copy 
+		 * to the auxiliary array used for merging. To do so, we use two invocations of the sort method, one that takes its 
+		 * input from the given array and puts the sorted output in the auxiliary array; the other takes its input from the 
+		 * auxiliary array and puts the sorted output in the given array. With this approach, in a bit of mindbending 
+		 * recursive trickery, we can arrange the recursive calls such that the computation switches the roles of the 
+		 * input array and the auxiliary array at each level." */
 		public void MergeSort(int[] input) {
-			Merge(input, 0, input.Length-1);
-		}
-		private void Merge(int[] toSort, int lo, int hi) {
+			//so need a copy
+			int[] material = new int[input.Length];
+			for (int i = 0; i < material.Length; i++) {
+				material [i] = input [i];
+			}
+			Merge(material, 0, input.Length-1, input);
+
+		 }
+		// Improvements: Insertion Sort for small subarrays ( < CUTOFF),
+		// using two arrays recursively saves time, and subarrays already
+		//sorted not remerged (i.e.when toSort[mid-1] < toSort[mid]
+		private void Merge(int[] toSort, int lo, int hi, int[] output) {
+			if (hi - lo < CUTOFF) {
+				PartialInsertionSort (output, lo, hi);
+			} else {					
+				int mid = lo + ((hi - lo) / 2);
+				//Console.WriteLine (mid);
+				Merge (output, lo, mid, toSort);
+				Merge (output, mid, hi, toSort);
+				int x = lo;//zeroes appended here
+				int y = mid;
+				if (toSort [mid - 1] < toSort [mid]) {
+					for (int i = lo; i <= hi; i++) {
+						output [i] = toSort [i];
+					}
+				}
+				else {
+				for (int i = lo; i <= hi; i++) {
+					if (x >= mid) {
+						while (y <= hi) {
+							output[i] = toSort [y];
+							y++;
+							i++;
+						}
+					} else if (y > hi) {
+						while (x < mid) {
+							output [i] = toSort [x];
+							x++;
+							i++;
+						}
+					}
+					else if (toSort [x] < toSort [y]) {
+						output [i] = toSort [x];
+						x++;
+					} else {
+						output [i] = toSort [y];
+						y++;
+					}
+				}//ends for
+				} //inner else
+			}//else
+		} //ends Merge
+
+
+		//Plain merge
+		private void VanillaMerge(int[] toSort, int lo, int hi) {
 			if (hi - lo == 1) {
 				if (toSort [hi] < toSort [lo])
 					Swap (toSort, hi, lo);
-				
 			} else {
 				int mid = lo + ((hi - lo) / 2);
-				Merge (toSort, lo, mid);
-				Merge (toSort, mid, hi);// used with recursive merge used
+				VanillaMerge (toSort, lo, mid);
+				VanillaMerge (toSort, mid, hi);// used with recursive merge used
 				int x = lo;//zeroes appended here
 				int y = mid;
+				//Console.WriteLine (mid);
+
 				int[] material = new int[hi - lo + 1];
 				for (int i = 0; i < material.Length; i++) {
 					if (x >= mid) {
@@ -54,67 +114,7 @@ namespace Utils {
 					}
 			}//else
 		} //ends Merge
-		/*
-				int mid = lo + ((hi - lo) / 2);
-				Merge (toSort, lo, mid);
-				Merge (toSort, mid, hi);// used with recursive merge used
-				int x = lo;//zeroes appended here
-				int y = mid;
-				int[] material = new int[hi - lo + 1];
-				for (int i = 0; i < material.Length; i++) {
-					if (x >= mid) {
-						while (y <= hi) {
-							material [i] = toSort [y];
-							y++;
-							i++;
-						}
-
-					} else if (y > hi) {
-						while (x < mid) {
-							material [i] = toSort [x];
-							x++;
-							i++;
-						}
-					}
-					else if (toSort [x] < toSort [y]) {
-						material [i] = toSort [x];
-						x++;
-					} else {
-						material [i] = toSort [y];
-						y++;
-					}
-				}
-				for (int i = 0; i < material.Length; i++) {
-					toSort[lo+i] = material[i];
-				
-				}
-			}//else
-	} //ends Merge
-
-		/*  Conventional merge with another array
-		 * for (int i = 0; i < material.Length; i++) {
-				if (x >= mid) {
-					while (y <= hi) {
-						material [i] = toSort [y];
-					    y++;
-					}
-					break;
-				} else if (y > hi) {
-					while (x < mid) {
-						material [i] = toSort [x];
-						x++;
-						}
-					break;
-				}
-				else if (toSort [x] < toSort [y]) {
-					material [i] = toSort [x];
-					x++;
-				} else {
-					material [i] = toSort [y];
-					y++;
-				}
-			}
-            In-place
+		/* In-place works with test array, but not in recursive method?
             while (x < hi && y < hi) {
 					//can be thought of as insertion sort; one is sorted, so if one lower need to shuffle
 					//find first difference, then insert?
@@ -141,8 +141,77 @@ namespace Utils {
 			x++;
 	} //ends for 
 */
+
+		public void QuickSort(int[] input) {
+			Shuffle (input); //guarantees running time
+			QuickSortStep(input, 0, input.Length-1);
+		}
+
+		//Optimized: uses Insertion Sort for small subarrays
+		//Takes a sample of 3 items in array and chooses median as partioning element
+		public void QuickSortStep(int[] input, int lo, int hi) {
+			if (hi <= lo)
+				return;
+			if (hi - lo < CUTOFF) {
+				PartialInsertionSort (input, lo, hi);
+				return;
+			}
+			//index value now in lo
+			int toUse = 0;
+			int[] indices = new int[3];
+			Random r = new Random ();
+			for(int w = 0; w < indices.Length; w++) {
+				indices [w] = r.Next (lo, hi);
+			}
+			for (int k = indices.Length-1; k > 0; k--) {
+				for (int l = 0; l < k; l++) {
+					if (input[indices [l]] > input[indices[k]]) {
+						int tempIndex = indices [k];
+						for (int x = k; x > l; x--) {
+							indices [x] = indices [x - 1];
+						} //ends for
+						indices [l] = tempIndex;
+					}
+				}
+			}
+			toUse = indices [1]; //median
+			Swap(input, toUse, lo);
+			int i = lo+1;
+			int j = hi;
+			while (true) { 
+				while (input [j] > input [lo]) {
+					j--;
+					if (j == lo)
+						break;
+				}
+				while (input [i] < input [lo]) {
+					i++;
+					if (i == hi)
+						break;
+				}
+				if (i >= j)
+					break;
+			    Swap (input, i, j);
+				j--;
+			}
+			Swap (input, lo, j); //cutoff?
+			QuickSortStep(input, lo, j-1); //ending conditions
+			QuickSortStep(input, j+1, hi); //recursive
+		}
+
+		//Knuth shuffle
+		public void Shuffle(int[] input) {
+			Random r = new Random ();
+			int j = 0;
+			for (int i = input.Length-1; i > 0; i--) {
+				j = r.Next (i);
+				Swap (input, i, j);
+			} //ends for 
+		} //ends shuffle
+
+
 		public void SelectionSort(int[] input) {
-			//in-place
+			
 			int hi;
 			for (int i =input.Length-1; i >0; i--) {
 				hi = 0;
@@ -153,6 +222,20 @@ namespace Utils {
 				} //ends inner for
 				Swap (input, i, hi);
 			} //ends outer for
+		}
+
+		public void PartialInsertionSort(int[] input, int lo, int hi) {
+			for (int i = lo+1; i <= hi; i++) {
+				for (int j = lo; j < i; j++) {
+					if (input [j] > input [i]) {
+						int temp = input [i];
+						for (int k = j+1; k <= i; k++) {
+							input [k] = input [k - 1];
+						} //ends shifting for
+						input [j] = temp;
+					}//if
+				} //inner for
+			} // outer for
 		}
 
 		public void InsertionSort(int[] input) {
@@ -169,7 +252,7 @@ namespace Utils {
 			} // outer for
 
 		} //ends InsertionSort
-		//to do: optimize
+
 		public void BubbleSort(int[] input) {
 			for (int i = input.Length-1; i >0; i--) {
 				for (int j = 0; j < i; j++) {
@@ -181,7 +264,6 @@ namespace Utils {
 		}
 
 		public void ShellSort(int[] input) {
-			//deciding on number of passes?
 			//sequence of increments: 3n+1 in reverse order
 			//(3^k-1)/2, not greater than Ceiling(n/3)
 			int max = (int) Math.Ceiling(Math.Log(input.Length, 3)) -1;
@@ -189,18 +271,18 @@ namespace Utils {
 			int[] indices;
 			for (int i = 0; i < max; i++) { 
 				//i+2 since there's no need to sort 1- increments or with another array or 0-increments at all
-				increments [i] = (int) ((Math.Pow (3, i+2) - 1) / 2);//todo: check this library call
+				increments [i] = (int) ((Math.Pow (3, i+2) - 1) / 2);
 				} 
 			for (int i = increments.Length-1; i >= 1; i--) {
 				
 				//possible start indices: [0...(size-n)) for n-sorting 
-				for(int j =0; j < increments[i]; j++) {     //weird 
+				for(int j =0; j < increments[i]; j++) {     
 					int size = (int) Math.Ceiling( (double) ((input.Length-j)/increments[i])); //size of each subarray to sort
-					indices = new int[size]; //get all possible subsets of array and sort them
+					indices = new int[size]; 
 					int element = 0;
 					int loc = j;
 					while (element < indices.Length) {
-						indices [element] = loc; //issue here: out of range
+						indices [element] = loc;
 						loc += increments [i];
 						element++;
 					}
@@ -216,7 +298,7 @@ namespace Utils {
 									input[indices[l]] = temp;
 							} //ends higher if
 						}
-					} //could add an output statement here if there are problems
+					} 
 			    } //ends inner for 
 			} 
 			InsertionSort (input); //add later; first, check the output is okay
@@ -237,8 +319,28 @@ namespace Utils {
 			//s.SelectionSortTest ();
 			//s.BubbleSortTest ();
 			//s.MergeSortTest ();//Sort
-			s.ShellSortTest();
+			//s.ShellSortTest();
+			//s.ShuffleTest();
+			//s.QuickSortTest();
 			}
+
+		public void ShuffleTest() {
+			for (int i = 0; i < 10; i++) {
+				InitMaterial ();
+				SelectionSort (material);
+				Shuffle (material);
+				PrintMaterial ();
+			}
+
+		}
+
+		public void QuickSortTest() {
+			InitMaterial ();
+			QuickSort (material);
+			if (!CheckMaterial())
+				PrintMaterial ();
+		}
+
 
 		//todo: apply. Test is good.
 		public void MergeTest() {
@@ -335,8 +437,6 @@ namespace Utils {
 		x++;
       */
 
-
-
 		public void InsertionSortTest() {
 			material = InitMaterial ();
 			InsertionSort (material);
@@ -368,6 +468,14 @@ namespace Utils {
 				PrintMaterial ();
 		}
 
+	//NB: no test method for method PLainVanillaSort
+/*	   private void VanillaMergeSortTest() {
+	    	material = InitMaterial ();
+		    PlainMergeSort (material);
+		    if (!CheckMaterial ())
+			   PrintMaterial ();
+	       } */
+
 	   private void ShellSortTest() {
 		    material = InitMaterial();
 			ShellSort (material);
@@ -375,10 +483,8 @@ namespace Utils {
 				PrintMaterial ();
 	   }
 
-
-
 		private bool CheckMaterial() {
-			//checking: assume every number greater than one before
+			//sorted: is every number greater than the one before?
 			for (int i = 1; i < material.Length; i++) {
 				if (material [i] >= material [i - 1])
 					continue; //output entire array
@@ -409,6 +515,5 @@ namespace Utils {
 			return material;
 		} //ends InitMaterial
 	}
-
 
 }

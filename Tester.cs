@@ -1,10 +1,10 @@
 using System;
-using Utils;
+
 namespace Utils
-{ //to-do: use StringBuilder equivalent for printing output and figure namespace thing out
+{ //to-do: figure namespace thing out. Needs proper annotation
 	class Tester
 	{
-		Utils.Sorts s;
+		Sorts s;
 		int[] material;
 		public Tester ()
 		{
